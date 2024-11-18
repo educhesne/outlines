@@ -46,6 +46,7 @@ from lark.parsers.lalr_analysis import (
 )
 from lark.parsers.lalr_interactive_parser import InteractiveParser
 from lark.parsers.lalr_parser import LALR_Parser, ParseConf, ParserState, _Parser
+from lark.parsers.lalr_parser_state import contextual_states, eval_attribute
 from outlines_core.fsm.regex import (
     BetterFSM,
     get_token_transition_keys,
@@ -341,6 +342,7 @@ class PartialLALRParser(LALR_Parser):
         self.parser = PartialParser(
             self._parse_table,
             callbacks,
+            parser_conf.python_header,
             debug,
             use_value_stack=parser_conf.use_value_stack,
         )
@@ -415,23 +417,26 @@ class PartialParserState(ParserState):
         else:
             self.feed_token_no_stack(token, is_end=is_end)
 
-    def feed_token_no_stack(self, token, is_end=False):
+    def feed_token_no_stack(self, token, is_end=False, ctx_term=True):
         """
         This is a copy of `ParserState.feed_token` with all the value stack
         steps removed.  Since we're not exactly parsing in order to obtain a
         CST or anything similar, we can avoid the growing expense of tracking
         the parse tree.
         """
+        attribute_stack = self.attribute_stack     # the stack of synthesized attributes
+        python_header = self.python_header
+        global_vars = self.global_vars
         state_stack = self.state_stack
-        states = self.parse_conf.states
         end_state = self.parse_conf.end_state
+        states = contextual_states(self.parse_conf.states, state_stack, attribute_stack, global_vars, python_header, ctx_term)
 
         while True:
             state = state_stack[-1]
             try:
-                action, arg = states[state][token.type]
+                action, arg, _ = states[state][token]
             except KeyError:
-                expected = {s for s in states[state].keys() if s.isupper()}
+                expected = {s for s in states[state].keys() if s.type.isupper()}
                 raise UnexpectedToken(
                     token, expected, state=self, interactive_parser=None
                 )
@@ -442,17 +447,25 @@ class PartialParserState(ParserState):
                 # shift once and return
                 assert not is_end
                 state_stack.append(arg)
+                attribute_stack.append(token.value)           # the attribute of a token is its value
                 return
             else:
                 # reduce+shift as many times as necessary
                 rule = arg
                 size = len(rule.expansion)
+
+                # the synthesized attribute of a non-terminal symbol is the evaluation of the expression 
+                # attached to the rule deriving it
+                attribute = eval_attribute(rule.ast, attribute_stack, global_vars, python_header)
+
                 if size:
                     del state_stack[-size:]
+                    del attribute_stack[-size:]
 
-                _action, new_state = states[state_stack[-1]][rule.origin.name]
+                _action, new_state, _ = states[state_stack[-1]][Token(rule.origin.name, "")]
                 assert _action is Shift
                 state_stack.append(new_state)
+                attribute_stack.append(attribute)
 
                 if is_end and state_stack[-1] == end_state:
                     return
