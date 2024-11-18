@@ -81,8 +81,8 @@ class PartialParserConf(ParserConf):
         "use_value_stack",
     )
 
-    def __init__(self, rules, callbacks, start, deterministic, use_value_stack):
-        super().__init__(rules, callbacks, start)
+    def __init__(self, rules, callbacks, start, deterministic, use_value_stack, python_header):
+        super().__init__(rules, callbacks, start, python_header)
         self.deterministic = deterministic
         self.use_value_stack = use_value_stack
 
@@ -125,6 +125,7 @@ class PartialLark(Lark):
             self.options.start,
             self.deterministic,
             self.use_value_stack,
+            self.python_header,
         )
 
         # This is `_construct_parsing_frontend` expanded/inlined
@@ -513,14 +514,14 @@ class PartialParserState(ParserState):
 
 
 class PartialParser(_Parser):
-    def __init__(self, parse_table, callbacks, debug=False, use_value_stack=False):
-        super().__init__(parse_table, callbacks, debug=debug)
+    def __init__(self, parse_table, callbacks, python_header, debug=False, use_value_stack=False):
+        super().__init__(parse_table, callbacks, python_header, debug=debug)
         self.use_value_stack = use_value_stack
 
     def parse(
         self, lexer, start, value_stack=None, state_stack=None, start_interactive=False
     ):
-        parse_conf = ParseConf(self.parse_table, self.callbacks, start)
+        parse_conf = ParseConf(self.parse_table, self.callbacks, start, self.python_header)
         parser_state = PartialParserState(
             parse_conf, copy(lexer), state_stack, value_stack, self.use_value_stack
         )
