@@ -365,9 +365,11 @@ class PartialParserState(ParserState):
         state_stack=None,
         value_stack=None,
         use_value_stack=False,
+        attribute_stack=None,
+        global_vars=None,
     ):
         super().__init__(
-            parse_conf, lexer, state_stack=state_stack, value_stack=value_stack
+            parse_conf, lexer, state_stack=state_stack, value_stack=value_stack, attribute_stack=attribute_stack, global_vars=global_vars
         )
         self.use_value_stack = use_value_stack
 
@@ -391,14 +393,18 @@ class PartialParserState(ParserState):
                     )
 
                     stack = copy(self.state_stack)
+                    attribute_stack = deepcopy(self.attribute_stack)
+                    global_vars = deepcopy(self.global_vars)
                     try:
-                        self.feed_token_no_stack(test_token, is_end=is_end)
+                        self.feed_token_no_stack(test_token, is_end=is_end, ctx_term=False)
                         can_transition = True
                         break
                     except UnexpectedToken:
                         continue
                     finally:
                         self.state_stack = stack
+                        self.attribute_stack = attribute_stack
+                        self.global_vars = global_vars
                 else:
                     can_transition = True
 
@@ -424,7 +430,7 @@ class PartialParserState(ParserState):
         CST or anything similar, we can avoid the growing expense of tracking
         the parse tree.
         """
-        attribute_stack = self.attribute_stack     # the stack of synthesized attributes
+        attribute_stack = self.attribute_stack     # stack of synthesized attributes
         python_header = self.python_header
         global_vars = self.global_vars
         state_stack = self.state_stack
@@ -520,6 +526,8 @@ class PartialParserState(ParserState):
             copy(self.state_stack),
             deepcopy(self.value_stack),
             use_value_stack=self.use_value_stack,
+            attribute_stack=deepcopy(self.attribute_stack),
+            global_vars=deepcopy(self.global_vars)
         )
 
     def __repr__(self):
@@ -532,11 +540,11 @@ class PartialParser(_Parser):
         self.use_value_stack = use_value_stack
 
     def parse(
-        self, lexer, start, value_stack=None, state_stack=None, start_interactive=False
+        self, lexer, start, value_stack=None, state_stack=None, start_interactive=False, attribute_stack=None, global_vars=None
     ):
         parse_conf = ParseConf(self.parse_table, self.callbacks, start, self.python_header)
         parser_state = PartialParserState(
-            parse_conf, copy(lexer), state_stack, value_stack, self.use_value_stack
+            parse_conf, copy(lexer), state_stack, value_stack, self.use_value_stack, attribute_stack, global_vars
         )
         if start_interactive:
             return InteractiveParser(self, parser_state, parser_state.lexer)
