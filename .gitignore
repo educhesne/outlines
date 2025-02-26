@@ -1,13 +1,17 @@
-*.egg-info
 __pycache__
-*_version.py
-docs/build
+.benchmarks
+.cache
 .coverage
-.idea/
-*.gguf
+.direnv
+.env
+.idea
+.pytest_cache
+.python-version
 .venv
+*_version.py
+*.egg-info
+*.gguf
 benchmarks/results
-
-# Remove doc build folders
-.cache/
-build/
+build
+docs/build
+logs

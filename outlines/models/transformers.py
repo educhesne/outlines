@@ -2,8 +2,6 @@ import dataclasses
 import inspect
 from typing import TYPE_CHECKING, Iterator, List, Optional, Tuple, Union
 
-from datasets.fingerprint import Hasher
-
 from outlines.generate.api import GenerationParameters, SamplingParameters
 from outlines.models.tokenizer import Tokenizer
 
@@ -116,6 +114,8 @@ class TransformerTokenizer(Tokenizer):
         return NotImplemented
 
     def __hash__(self):
+        from datasets.fingerprint import Hasher
+
         return hash(Hasher.hash(self.tokenizer))
 
     def __getstate__(self):
@@ -203,8 +203,8 @@ class Transformers:
     ) -> Union[str, List[str], List[List[str]]]:
         """Generate text using `transformers`.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         prompts
             A prompt or list of prompts.
         generation_parameters
@@ -304,7 +304,7 @@ class Transformers:
         sampling_parameters: SamplingParameters,
     ) -> dict:
         """
-        Conert outlines generation parameters into model.generate kwargs
+        Convert outlines generation parameters into model.generate kwargs
         """
         from transformers import GenerationConfig, LogitsProcessorList, set_seed
 

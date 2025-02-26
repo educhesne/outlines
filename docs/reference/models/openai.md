@@ -2,7 +2,11 @@
 
 !!! Installation
 
-    You need to install the `openai` library to be able to use the OpenAI API in Outlines.
+    You need to install the `openai` library to be able to use the OpenAI API in Outlines. Or alternatively:
+
+    ```bash
+    pip install "outlines[openai]"
+    ```
 
 ## OpenAI models
 
@@ -127,7 +131,7 @@ class Person(BaseModel):
     last_name: str
     age: int
 
-generate.json(model, Person)
+generator = generate.json(model, Person)
 generator("current indian prime minister on january 1st 2023")
 # Person(first_name='Narendra', last_name='Modi', age=72)
 

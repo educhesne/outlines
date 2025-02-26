@@ -1,11 +1,10 @@
 import dataclasses
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from transformers import SPIECE_UNDERLINE, PreTrainedTokenizerBase
-
 from outlines.generate.api import GenerationParameters, SamplingParameters
 
 if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizerBase
     from vllm import LLM
     from vllm.sampling_params import SamplingParams
 
@@ -53,8 +52,8 @@ class VLLM:
     ):
         """Generate text using vLLM.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         prompts
             A prompt or list of prompts.
         generation_parameters
@@ -172,7 +171,7 @@ class VLLM:
 def vllm(model_name: str, **vllm_model_params):
     """Load a vLLM model.
 
-    Arguments
+    Parameters
     ---------
     model_name
         The name of the model to load from the HuggingFace hub.
@@ -188,7 +187,7 @@ def vllm(model_name: str, **vllm_model_params):
     return VLLM(model)
 
 
-def adapt_tokenizer(tokenizer: PreTrainedTokenizerBase) -> PreTrainedTokenizerBase:
+def adapt_tokenizer(tokenizer: "PreTrainedTokenizerBase") -> "PreTrainedTokenizerBase":
     """Adapt a tokenizer to use to compile the FSM.
 
     The API of Outlines tokenizers is slightly different to that of `transformers`. In
@@ -205,6 +204,8 @@ def adapt_tokenizer(tokenizer: PreTrainedTokenizerBase) -> PreTrainedTokenizerBa
     PreTrainedTokenizerBase
         The adapted tokenizer.
     """
+    from transformers import SPIECE_UNDERLINE
+
     tokenizer.vocabulary = tokenizer.get_vocab()
     tokenizer.special_tokens = set(tokenizer.all_special_tokens)
 

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "outlines"
 authors= [{name = "Outlines Developers"}]
 description = "Probabilistic Generative Model Programming"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 license = {text = "Apache-2.0"}
 keywords=[
     "machine learning",
@@ -28,7 +28,7 @@ dependencies = [
    "jinja2",
    "lark",
    "nest_asyncio",
-   "numpy<2.0.0",
+   "numpy",
    "cloudpickle",
    "diskcache",
    "pydantic>=2.0",
@@ -36,16 +36,23 @@ dependencies = [
    "jsonschema",
    "requests",
    "tqdm",
-   "datasets",
    "typing_extensions",
-   "pycountry",
+   "iso3166",
    "airportsdata",
    "torch",
-   "outlines_core==0.1.14",
+   "outlines_core==0.1.26",
+   "genson",
+   "pre-commit>=4.0.1",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+vllm = ["vllm", "transformers", "numpy<2"]
+transformers = ["transformers", "accelerate", "datasets", "numpy<2"]
+mlxlm = ["mlx-lm", "datasets"]
+openai = ["openai"]
+llamacpp = ["llama-cpp-python", "transformers", "datasets", "numpy<2"]
+exllamav2 = ["exllamav2"]
 test = [
     "pre-commit",
     "pytest",
@@ -58,14 +65,16 @@ test = [
     "beartype<0.16.0",
     "responses",
     "llama-cpp-python",
-    "mlx-lm; platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "mlx-lm>=0.19.2; platform_machine == 'arm64' and sys_platform == 'darwin'",
     "huggingface_hub",
     "openai>=1.0.0",
-    "vllm; sys_platform != 'darwin'",
+    "datasets",
     "transformers",
     "pillow",
     "exllamav2",
+    "jax",
 ]
+test-gpu=["outlines[test]", "vllm; sys_platform == 'linux'"]
 serve = [
     "vllm>=0.3.0",
     "uvicorn",
@@ -109,6 +118,9 @@ enable_incomplete_feature = ["Unpack"]
 [[tool.mypy.overrides]]
 module = [
     "exllamav2.*",
+    "jax",
+    "jaxlib",
+    "jax.numpy",
     "jinja2",
     "jsonschema.*",
     "openai.*",
@@ -120,6 +132,7 @@ module = [
     "cloudpickle.*",
     "diskcache.*",
     "pydantic.*",
+    "pydantic_core.*",
     "pytest",
     "referencing.*",
     "torch.*",
@@ -134,9 +147,10 @@ module = [
     "vllm.*",
     "uvicorn.*",
     "fastapi.*",
-    "pycountry.*",
+    "iso3166.*",
     "airportsdata.*",
     "outlines_core.*",
+    "genson",
 ]
 ignore_missing_imports = true
 
@@ -162,3 +176,10 @@ show_missing = true
 [tool.diff_cover]
 compare_branch = "origin/main"
 diff_range_notation = ".."
+
+[tool.docformatter]
+style = "numpy"
+in-place = true
+
+[tool.ruff.lint]
+ignore = [ "E731", "F401" ]
