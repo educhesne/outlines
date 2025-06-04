@@ -5,8 +5,9 @@ import time
 from copy import copy
 
 import torch
-from lark.indenter import DedentError
-from lark.lexer import UnexpectedCharacters, UnexpectedToken
+from attribute_lark.indenter import DedentError, PythonIndenter
+from attribute_lark.exceptions import UnexpectedCharacters, UnexpectedToken
+from attribute_lark import AttributeLark
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -15,7 +16,6 @@ from transformers import (
     set_seed,
 )
 
-from outlines.fsm.parsing import PartialLark, PartialPythonIndenter
 
 revision = None
 checkpoint = "Salesforce/codegen-350M-mono"
@@ -27,12 +27,11 @@ model = AutoModelForCausalLM.from_pretrained(
     checkpoint, trust_remote_code=True, revision=revision
 ).to(device)
 
-parser = PartialLark.open_from_package(
+parser = AttributeLark.open_from_package(
     "tests",
     "partial_python.lark",
     ["text"],
-    parser="lalr",
-    postlex=PartialPythonIndenter(),
+    postlex=PythonIndenter(),
     start="file_input",
 )
 
@@ -40,9 +39,9 @@ parser = PartialLark.open_from_package(
 class ParserLogitsProcessor(LogitsProcessor):
     """Bias invalid token scores according to a running parse state."""
 
-    def __init__(self, parser):
+    def __init__(self, parser: AttributeLark):
         self.parser = parser
-        self.parser_state = parser.parse("")
+        self.parser_state = parser.parse_interactive("")
         self.states_stack = [self.parser_state]
         self.token_seq = None
         self.token_idx = 0
@@ -58,10 +57,7 @@ class ParserLogitsProcessor(LogitsProcessor):
             self.token_seq += tokenizer.decode(input_ids[0][self.token_idx])
 
         # Process the last sampled token
-        lex_state = self.parser_state.lexer.state
-        lex_state.text = self.token_seq
-
-        self.parser.parse_from_state(self.parser_state, is_end=False)
+        self.parser_state = self.parser.interactive_parser.resume_parser(self.parser_state, self.token_seq)
 
         print(f'parsed:"{self.token_seq}"')
 
@@ -77,11 +73,9 @@ class ParserLogitsProcessor(LogitsProcessor):
         t0 = time.perf_counter()
         for test_token, token_id in tokenizer.vocab.items():
             ps = copy(self.parser_state)
-            ls = ps.lexer.state
-            ls.text = self.token_seq + tokenizer.convert_tokens_to_string([test_token])
 
             try:
-                self.parser.parse_from_state(ps, is_end=False)
+                self.parser.interactive_parser.resume_parser(ps, tokenizer.convert_tokens_to_string([test_token]))
                 mask[0][token_id] = 0
             except (EOFError, UnexpectedToken, UnexpectedCharacters, DedentError):
                 pass

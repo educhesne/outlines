@@ -332,7 +332,7 @@ def test_generate_format_bool(request, model_fixture):
 
 @pytest.mark.parametrize("model_fixture", ALL_MODEL_FIXTURES)
 def test_generate_cfg(request, model_fixture, sample_lark_grammar):
-    from lark import Lark
+    from attribute_lark import AttributeLark
 
     from outlines import grammars
 
@@ -341,14 +341,13 @@ def test_generate_cfg(request, model_fixture, sample_lark_grammar):
         generator = generate.cfg(model, sample_lark_grammar)
         res = generator(**get_inputs(model_fixture))
         # validate legal with the grammar via lark
-        # TODO: cleanup PartialLark so doesn't modify Lark globally
         import importlib
 
-        import lark.lark
+        import attribute_lark.attribute_lark
 
-        importlib.reload(lark.lark)
-        Lark(
-            sample_lark_grammar, parser="lalr", import_paths=[grammars.GRAMMAR_PATH]
+        importlib.reload(attribute_lark.attribute_lark)
+        AttributeLark(
+            sample_lark_grammar, import_paths=[grammars.GRAMMAR_PATH]
         ).parse(res)
 
 

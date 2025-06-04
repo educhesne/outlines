@@ -1,11 +1,10 @@
-import collections
 import copy
 import warnings
-from typing import TYPE_CHECKING, Any, Generator, Union
+from typing import TYPE_CHECKING, Any, Generator, Union, List, NamedTuple, Optional
 
 import torch
-from lark.indenter import DedentError
-from lark.lexer import UnexpectedCharacters, UnexpectedToken
+from attribute_lark.indenter import DedentError
+from attribute_lark.exceptions import UnexpectedCharacters, UnexpectedToken
 from outlines_core.fsm.guide import Generate
 from outlines_core.fsm.guide import Guide as CoreGuide
 from outlines_core.fsm.guide import RegexGuide as CoreRegexGuide
@@ -15,7 +14,8 @@ from outlines_core.fsm.guide import (
 )
 
 from outlines import grammars
-from outlines.fsm.parsing import PartialLark, PartialParserState
+from attribute_lark import AttributeLark
+from attribute_lark.parsers.parser import InteractiveParserState
 
 if TYPE_CHECKING:
     from outlines.models.tokenizer import Tokenizer
@@ -97,7 +97,10 @@ class RegexGuide(CoreRegexGuide):
         )
 
 
-CFGState = collections.namedtuple("CFGState", ["parser_state", "prev_token"])
+# CFGState = collections.namedtuple("CFGState", ["parser_state", "prev_token"])
+class CFGState(NamedTuple):
+    parser_state: List[InteractiveParserState]
+    prev_token: Optional[int]
 
 
 class CFGGuide(Guide):
@@ -115,13 +118,12 @@ class CFGGuide(Guide):
         self.cfg_string = cfg_string
         self.tokenizer = tokenizer
         self.eos_token_id = self.tokenizer.eos_token_id
-        self.parser = PartialLark(
+        self.parser = AttributeLark(
             cfg_string,
-            parser="lalr",
             import_paths=[grammars.GRAMMAR_PATH],
         )
         self.initial_state = CFGState(
-            parser_state=self.parser.parse(""), prev_token=None
+            parser_state=self.parser.parse_interactive(""), prev_token=None
         )
 
     def get_next_instruction(self, state: CFGState) -> Instruction:
@@ -212,15 +214,15 @@ class CFGGuide(Guide):
         The guides new PartialParserState
 
         """
-        if state.parser_state is None or token_id == self.eos_token_id:
-            parser_state = None
+        if state.parser_state == [] or token_id == self.eos_token_id:
+            parser_state = []
         else:
             parser_state = self._get_parser_state_token_applied(state, int(token_id))
         return CFGState(parser_state=parser_state, prev_token=token_id)
 
     def _get_parser_state_token_applied(
         self, state: CFGState, token_id: int
-    ) -> PartialParserState:
+    ) -> List[InteractiveParserState]:
         """
         Don't mutate `parser_state`, copy to protect
 
@@ -245,9 +247,7 @@ class CFGGuide(Guide):
         if new_token_str == "":
             raise ValueError("empty next token")
 
-        # update parser with new token
-        parser_state.lexer.state.text += new_token_str
-        self.parser.parse_from_state(parser_state, is_end=False)
+        parser_state = self.parser.interactive_parser.resume_parser(parser_state, new_token_str)
 
         return parser_state
 
@@ -260,14 +260,14 @@ class CFGGuide(Guide):
         """Generation is allowed to terminate"""
         if state.parser_state is not None:
             try:
-                copy.copy(state.parser_state).feed_eof()
+                self.parser.interactive_parser.feed_eos(copy.copy(state.parser_state))
             except UnexpectedToken:
                 return False
         return True
 
     def must_terminate_state(self, state: CFGState) -> bool:
         """Generation must terminate, no legal continuations"""
-        return state.parser_state is None or set(state.parser_state.accepts()).issubset(
+        return state.parser_state is None or set(state.parser_state[-1].lookahead_PDA_state.keys()).issubset(
             {"$END"}
         )
 

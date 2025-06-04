@@ -12,11 +12,11 @@ from outlines.fsm.guide import CFGGuide
 def cleanup_lark_import():
     import importlib
 
-    import lark.lark
+    import attribute_lark.attribute_lark
 
     yield
     # Clean up lark.lark.LarkOptions._defaults
-    importlib.reload(lark.lark)
+    importlib.reload(attribute_lark.attribute_lark)
 
 
 TestInputs = namedtuple(
@@ -383,14 +383,13 @@ for sample_collection_path in examples_path.iterdir():
 @pytest.mark.parametrize("sample_name", all_samples.keys())
 def test_cfg_test_sample_valid_with_lark(sample_name):
     """assert the provided sample is valid (testing the test itself)"""
-    from lark import Lark, UnexpectedToken
+    from attribute_lark import AttributeLark, UnexpectedToken
 
     grammar_name, grammar_str, sample = all_samples[sample_name]
     try:
-        parser = Lark(grammar_str, parser="lalr", import_paths=[grammars.GRAMMAR_PATH])
-        parser = parser.parse_interactive(sample)
-        token = parser.exhaust_lexer()[-1]
-        parser.feed_eof(token)
+        parser = AttributeLark(grammar_str, import_paths=[grammars.GRAMMAR_PATH])
+        parser_state = parser.parse_interactive(sample)
+        parser.interactive_parser.feed_eos(parser_state)
     except UnexpectedToken as e:
         raise Exception(
             f"Invalid test, sample '{sample_name}' isn't a legal generation of '{grammar_name}':\n{e}"
