@@ -1,3 +1,4 @@
+import collections
 import copy
 import warnings
 from typing import TYPE_CHECKING, Any, Generator, Union, List, NamedTuple, Optional
@@ -97,10 +98,7 @@ class RegexGuide(CoreRegexGuide):
         )
 
 
-# CFGState = collections.namedtuple("CFGState", ["parser_state", "prev_token"])
-class CFGState(NamedTuple):
-    parser_state: List[InteractiveParserState]
-    prev_token: Optional[int]
+CFGState = collections.namedtuple("CFGState", ["parser_state", "prev_token"])
 
 
 class CFGGuide(Guide):
@@ -214,8 +212,11 @@ class CFGGuide(Guide):
         The guides new PartialParserState
 
         """
-        if state.parser_state == [] or token_id == self.eos_token_id:
-            parser_state = []
+        if state.parser_state is None:
+            parser_state = None
+        elif token_id == self.eos_token_id:
+            self.parser.interactive_parser.feed_eos(state.parser_state)
+            parser_state = None
         else:
             parser_state = self._get_parser_state_token_applied(state, int(token_id))
         return CFGState(parser_state=parser_state, prev_token=token_id)
@@ -232,7 +233,7 @@ class CFGGuide(Guide):
 
         Don't allow empty ("") tokens, raise ValueError
         """
-        parser_state = copy.copy(state.parser_state)  # prevent side effects
+        parser_state = [copy.copy(ps) for ps in state.parser_state]  # prevent side effects
 
         # normalize
         if state.prev_token is None:
@@ -260,7 +261,7 @@ class CFGGuide(Guide):
         """Generation is allowed to terminate"""
         if state.parser_state is not None:
             try:
-                self.parser.interactive_parser.feed_eos(copy.copy(state.parser_state))
+                self.parser.interactive_parser.feed_eos([copy.copy(ps) for ps in state.parser_state])
             except UnexpectedToken:
                 return False
         return True
